@@ -88,24 +88,41 @@ void Viewer::run() {
 }
 
 void Viewer::updateBitmapTree() {
+  static bool ok = false;
+  static int i = 0;
+  static unsigned int u = 0;
+  static double d = 0;
+
   for (const auto& table : m_tableViews) {
     int row = 0;
     for (const auto& res : table.resources) {
       switch (res.info.type) {
         case Bitmap::ResourceType::kBit:
-          emit newIntValue(table.model, table.model->index(row, 1), (bool)m_db.readIntFromTable(res.info.name, table.name));
+          i = (bool)m_db.readIntFromTable(res.info.name, table.name, ok);
+          if (ok) {
+            emit newIntValue(table.model, table.model->index(row, 1), i);
+          }
           break;
         case Bitmap::ResourceType::kInt8:
         case Bitmap::ResourceType::kInt16:
         case Bitmap::ResourceType::kInt32:
-          emit newIntValue(table.model, table.model->index(row, 1), m_db.readIntFromTable(res.info.name, table.name));
+          i = m_db.readIntFromTable(res.info.name, table.name, ok);
+          if (ok) {
+            emit newIntValue(table.model, table.model->index(row, 1), i);
+          }
           break;
         case Bitmap::ResourceType::kUInt:
-          emit newUIntValue(table.model, table.model->index(row, 1), m_db.readUIntFromTable(res.info.name, table.name));
+          u = m_db.readUIntFromTable(res.info.name, table.name, ok);
+          if (ok) {
+            emit newUIntValue(table.model, table.model->index(row, 1), u);
+          }
           break;
         case Bitmap::ResourceType::kFloat:
         case Bitmap::ResourceType::kDouble:
-          emit newDoubleValue(table.model, table.model->index(row, 1), m_db.readDoubleFromTable(res.info.name, table.name));
+          d = m_db.readDoubleFromTable(res.info.name, table.name, ok);
+          if (ok) {
+            emit newDoubleValue(table.model, table.model->index(row, 1), d);
+          }
           break;
         case Bitmap::ResourceType::kBLOB:
           break;

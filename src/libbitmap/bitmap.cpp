@@ -94,46 +94,40 @@ void Bitmap::regBitAtTable(const string& table, const string& name, void* addr, 
   }
 }
 
-int Bitmap::readInt(const string& name) {
+int Bitmap::readInt(const string& name, bool& ok) {
 
 }
 
-unsigned int Bitmap::readUInt(const string& name) {
+unsigned int Bitmap::readUInt(const string& name, bool& ok) {
 
 }
 
-double Bitmap::readDouble(const string& name) {
+double Bitmap::readDouble(const string& name, bool& ok) {
 
 }
 
-int Bitmap::readIntFromTable(const string& name, const string& tableName) {
-  lock_guard<mutex> lg(lock());
+int Bitmap::readIntFromTable(const string& name, const string& tableName, bool& ok) {
   Statement query(*m_db, "SELECT i FROM " + tableName + " WHERE name = '" + name + "'");
-  int errCode = 0;
-  if ((errCode = query.tryExecuteStep()) != SQLITE_ROW) {
-    std::cerr << "Bitmap read int '" << name << "' from table '" << tableName << "' failure: " << sqlite3_errstr(errCode) << "\n";
+  ok = executeStatement(&query, WaitPolicy::kReturnImmediately);
+  if (!ok) {
     return {};
   }
   return query.getColumn("i").getInt();
 }
 
-unsigned int Bitmap::readUIntFromTable(const string& name, const string& tableName) {
-  lock_guard<mutex> lg(lock());
+unsigned int Bitmap::readUIntFromTable(const string& name, const string& tableName, bool& ok) {
   Statement query(*m_db, "SELECT i FROM " + tableName + " WHERE name = '" + name + "'");
-  int errCode = 0;
-  if ((errCode = query.tryExecuteStep()) != SQLITE_ROW) {
-    std::cerr << "Bitmap read uint '" << name << "' from table '" << tableName << "' failure: " << sqlite3_errstr(errCode) << "\n";
+  ok = executeStatement(&query, WaitPolicy::kReturnImmediately);
+  if (!ok) {
     return {};
   }
   return query.getColumn("i").getUInt();
 }
 
-double Bitmap::readDoubleFromTable(const string& name, const string& tableName) {
-  lock_guard<mutex> lg(lock());
+double Bitmap::readDoubleFromTable(const string& name, const string& tableName, bool& ok) {
   Statement query(*m_db, "SELECT r FROM " + tableName + " WHERE name = '" + name + "'");
-  int errCode = 0;
-  if ((errCode = query.tryExecuteStep()) != SQLITE_ROW) {
-    std::cerr << "Bitmap read double '" << name << "' from table '" << tableName << "' failure: " << sqlite3_errstr(errCode) << "\n";
+  ok = executeStatement(&query, WaitPolicy::kReturnImmediately);
+  if (!ok) {
     return {};
   }
   return query.getColumn("r").getDouble();
@@ -149,7 +143,9 @@ void Bitmap::read() {
 
   lock_guard<mutex> lg(lock());
   for (auto& res : m_resOnRead) {
-    res.statement.tryExecuteStep();
+    if (!executeStatement(&res.statement)) {
+      continue;
+    }
     switch (res.type) {
       case ResourceType::kBit:
         memcpy(&i8, res.addr, sizeof(i8));
@@ -237,7 +233,7 @@ void Bitmap::write() {
         res.statement.bindNoCopy(1, res.addr, res.size);
         break;
     }
-    res.statement.tryExecuteStep();
+    executeStatement(&res.statement);
     res.statement.tryReset();
   }
 //  transaction.commit();
@@ -417,4 +413,25 @@ void Bitmap::_regBitImpl(const string& table, const std::string& name, const str
       }
       break;
     }
+}
+
+bool Bitmap::executeStatement(SQLite::Statement *statement, WaitPolicy policy) {
+  int errCode = 0;
+  bool done = false, locked = false;
+
+  do {
+    errCode = statement->tryExecuteStep();
+    done = errCode == SQLITE_DONE || errCode == SQLITE_ROW;
+    locked = errCode == SQLITE_BUSY || errCode == SQLITE_LOCKED;
+
+    if (policy == WaitPolicy::kWaitUntilUnlocked && locked) {
+      statement->tryReset();
+    } else if (!done) {
+      if (!locked) {
+        std::cerr << "Bitmap execute statement failure: " << sqlite3_errstr(errCode) << "\n";
+      }
+      return false;
+    }
+  } while (!done);
+  return true;
 }

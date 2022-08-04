@@ -11,7 +11,7 @@ enum class AccessType : uint8_t {kRead, kWrite, kReadWrite};
 
 class Bitmap {
 public:
-  enum class ResourceType {
+  enum class ResourceType : uint16_t {
     kBit    = 0x0000,
     kInt8   = 0x0001,
     kInt16  = 0x0002,
@@ -43,6 +43,11 @@ private:
     int bit{};
   };
 
+  enum class WaitPolicy : uint8_t {
+    kWaitUntilUnlocked,
+    kReturnImmediately
+  };
+
 private:
   std::unique_ptr<SQLite::Database> m_db;
   std::unordered_map<std::string, ResourceType> m_types;
@@ -68,17 +73,17 @@ public:
 
   void regBitAtTable(const std::string& table, const std::string& name, void* addr, int bit, AccessType accessType);
 
-  int readInt(const std::string& name);
+  int readInt(const std::string& name, bool& ok);
 
-  unsigned int readUInt(const std::string& name);
+  unsigned int readUInt(const std::string& name, bool& ok);
 
-  double readDouble(const std::string& name);
+  double readDouble(const std::string& name, bool& ok);
 
-  int readIntFromTable(const std::string& name, const std::string& tableName);
+  int readIntFromTable(const std::string& name, const std::string& tableName, bool& ok);
 
-  unsigned int readUIntFromTable(const std::string& name, const std::string& tableName);
+  unsigned int readUIntFromTable(const std::string& name, const std::string& tableName, bool& ok);
 
-  double readDoubleFromTable(const std::string& name, const std::string& tableName);
+  double readDoubleFromTable(const std::string& name, const std::string& tableName, bool& ok);
 
   void read();
 
@@ -103,6 +108,8 @@ private:
   void _regImpl(const std::string& table, const std::string& name, const std::string& resType, void* addr, std::size_t size, AccessType accessType);
 
   void _regBitImpl(const std::string& table, const std::string& name, const std::string& resType, void* addr, int bit, AccessType accessType);
+
+  bool executeStatement(SQLite::Statement* statement, WaitPolicy policy = WaitPolicy::kWaitUntilUnlocked);
 };
 
 #endif // BITMAP_H
