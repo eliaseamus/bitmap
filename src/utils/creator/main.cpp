@@ -14,12 +14,12 @@ using std::exception;
 using std::runtime_error;
 
 int main(int argc, char* argv[]) {
-  string path, scriptPath;
+  string basePath, scriptPath;
   int opt;
-  while ((opt = getopt(argc, argv, "p:P:s:S:")) != EOF) {
+  while ((opt = getopt(argc, argv, "b:B:s:S:")) != EOF) {
     switch (tolower(opt)) {
-      case 'p':
-        path = optarg;
+      case 'b':
+        basePath = optarg;
         break;
       case 's':
         scriptPath = optarg;
@@ -28,8 +28,8 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    if (path.empty()) {
-      throw runtime_error("path of the database must be set via -p argument");
+    if (basePath.empty()) {
+      throw runtime_error("path of the database must be set via -b argument");
     } else if (scriptPath.empty()) {
       throw runtime_error("SQL script creating tables must be set via -s argument");
     }
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     std::stringstream script;
     script << scriptFile.rdbuf();
     scriptFile.close();
-    Bitmap::create(path, script.str());
+    Bitmap::create(basePath, script.str());
   } catch (exception& ex) {
     std::cerr << ex.what() << std::endl;
     return EXIT_FAILURE;
